@@ -20,6 +20,9 @@ import { createAgent, providerStrategy } from "langchain";
 const JudgeSchema = z.object({
   solution_1_score: z.number().min(0).max(10),
   solution_2_score: z.number().min(0).max(10),
+  solution_1_reasoning: z.string(),
+  solution_2_reasoning: z.string(),
+
   winner: z.enum(["solution_1", "solution_2"]),
 });
 
@@ -31,6 +34,12 @@ const JudgeSchema = z.object({
 const State = new StateSchema({
   messages: MessagesValue,
 
+  problem: new ReducedValue (
+    z.string().default(""),
+    { reducer: (_, next) => next }
+  ),
+  
+
   solution_1: new ReducedValue(
     z.string().default(""),
     { reducer: (_, next) => next }
@@ -41,14 +50,19 @@ const State = new StateSchema({
     { reducer: (_, next) => next }
   ),
 
-  judge: new ReducedValue(
-    JudgeSchema.default({
-      solution_1_score: 0,
-      solution_2_score: 0,
-      winner: "solution_1",
-    }),
-    { reducer: (_, next) => next }
-  ),
+    judge: new ReducedValue(
+      JudgeSchema.default({
+        solution_1_score: 0,
+        solution_2_score: 0,
+        solution_1_reasoning: "",
+        solution_2_reasoning: "",
+        systemPrompt: `You are an impartial judge comparing two solutions to a problem.
+  Score each solution from 0 to 10 based on its effectiveness, creativity, and relevance to the problem.
+  Provide reasoning for each score.`,
+        winner: "solution_1",
+      }),
+      { reducer: (_, next) => next }
+    ),
 });
 
 /**
@@ -87,6 +101,7 @@ const solutionNode: GraphNode<typeof State> = async (state) => {
  * -----------------------------
  */
 const judgeNode: GraphNode<typeof State> = async (state) => {
+  const { solution_1, solution_2 , problem} = state;
   const agent = createAgent({
     model: geminiModel,
     tools: [],
@@ -96,7 +111,7 @@ const judgeNode: GraphNode<typeof State> = async (state) => {
   const judgeResponse = await agent.invoke({
     messages: [
       new HumanMessage(`
-Compare the following two solutions and score them from 0 to 10.
+Compare the following two solutions and score them from 0 to 10. and tell your reasoning why you have selcted that model.
 Return structured JSON.
 
 Solution 1:

@@ -4,11 +4,12 @@ const app = express();
 
 
 app.get("/health", (req, res) => {
+    
     res.status(200).send("Hello from backend");
 });
 app.post("/use-graph", async(req, res) => {
-    await useGraph("Hello, how are you?"); // Example user message
-    res.status(200).send("Hello from backend");
+    await useGraph("wreite factorial of function in js"); // Example user message
+    res.status(200)
 });
 
 export default app;

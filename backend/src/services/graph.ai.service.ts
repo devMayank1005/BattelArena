@@ -1,33 +1,28 @@
-import {StateSchema,MessagesValue,StateGraph,START,END} from "@langchain/langgraph"
+import { HumanMessage } from "@langchain/core/messages";
+import {StateSchema,MessagesValue,ReducedValue,StateGraph,START,END} from "@langchain/langgraph"
+import type {GraphNode} from "@langchain/langgraph" 
 
-
-type JUDGEMENT ={
-    winner:"solution_1" | "solution_2" | "tie",
-    reasoning:string,
-    solution_1_score:number,
-    solution_2_score:number,
-
-
-}
-
-type AIBattelState={
-    messages:typeof MessagesValue,
-    solution_1:string,
-    solution_2:string,
-    judgement: JUDGEMENT | null
-    
-
-}
-
-const state : AIBattelState = {
+const State = new StateSchema({
     messages:MessagesValue,
-    solution_1:"",
-    solution_2:"",
-    judgement:{
-        winner:"tie",
-        reasoning:"",
-        solution_1_score:0,
-        solution_2_score:0  
+  
+}) 
 
-    }
+const solutionNode:GraphNode<typeof State> = (state) => {
+    console.log(state.messages)
+    return{
+        messages:state.messages
+    }  
+}
+
+
+const graph = new StateGraph(State) .addNode("solution",solutionNode)
+                                    .addEdge(START,"solution")
+                                    .compile()
+export default async function(userMessages:string){
+    const result = await graph.invoke({
+        messages:[
+            new HumanMessage(userMessages)
+        ]
+    })
+    return result.messages;
 }

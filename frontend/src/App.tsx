@@ -1,11 +1,10 @@
 import './App.css';
-import type { ComponentType } from 'react';
-
-declare const ChatInterface: ComponentType;
-export default ChatInterface;
+import ChatInterface from './components/ChatInterface';
 
 function App() {
   return (
     <ChatInterface />
   );
 }
+
+export default App;

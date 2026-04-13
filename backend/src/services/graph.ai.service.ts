@@ -1,178 +1,178 @@
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
-import {
-  StateSchema,
-  MessagesValue,
-  ReducedValue,
-  StateGraph,
-  START,
-  END,
-} from "@langchain/langgraph";
-import type { GraphNode } from "@langchain/langgraph";
-import { z } from "zod";
-import { mistralModel, cohereModel, geminiModel } from "./model.service.js";
-import { createAgent, providerStrategy } from "langchain";
+import { HumanMessage } from '@langchain/core/messages';
+import { createAgent, providerStrategy } from 'langchain';
+import { z } from 'zod';
+import { cohereModel, geminiModel, mistralModel } from './model.service.js';
 
-/**
- * -----------------------------
- * ZOD SCHEMAS (STRICT STRUCTURE)
- * -----------------------------
- */
+const ScoreBreakdownSchema = z.object({
+  correctness: z.number().min(0).max(10),
+  efficiency: z.number().min(0).max(10),
+  readability: z.number().min(0).max(10),
+  completeness: z.number().min(0).max(10),
+  notes: z.string(),
+});
+
 const JudgeSchema = z.object({
-  solution_1_score: z.number().min(0).max(10),
-  solution_2_score: z.number().min(0).max(10),
-  solution_1_reasoning: z.string(),
-  solution_2_reasoning: z.string(),
-
-  winner: z.enum(["solution_1", "solution_2"]),
+  solution_1: ScoreBreakdownSchema,
+  solution_2: ScoreBreakdownSchema,
+  winner: z.enum(['solution_1', 'solution_2']),
+  winner_explanation: z.string(),
 });
 
-/**
- * -----------------------------
- * STATE
- * -----------------------------
- */
-const State = new StateSchema({
-  messages: MessagesValue,
+export type JudgeResult = z.infer<typeof JudgeSchema>;
 
-  problem: new ReducedValue (
-    z.string().default(""),
-    { reducer: (_, next) => next }
-  ),
-  
-
-  solution_1: new ReducedValue(
-    z.string().default(""),
-    { reducer: (_, next) => next }
-  ),
-
-  solution_2: new ReducedValue(
-    z.string().default(""),
-    { reducer: (_, next) => next }
-  ),
-
-  judge: new ReducedValue(
-    JudgeSchema.default({
-      solution_1_score: 0,
-      solution_2_score: 0,
-      solution_1_reasoning: "",
-      solution_2_reasoning: "",
-      winner: "solution_1",
-    }),
-    { reducer: (_, next) => next }
-  ),
-});
-
-/**
- * -----------------------------
- * NODE: SOLUTION GENERATOR
- * -----------------------------
- */
-const solutionNode: GraphNode<typeof State> = async (state) => {
-  console.log("🧠 Input Messages:", state.messages);
-
-  const [mistralRes, cohereRes] = await Promise.all([
-    mistralModel.invoke(state.messages),
-    cohereModel.invoke(state.messages),
-  ]);
-
-  const sol1 = String(mistralRes.content);
-  const sol2 = String(cohereRes.content);
-
-  console.log("⚡ Mistral:", sol1);
-  console.log("⚡ Cohere:", sol2);
-
-  return {
-    messages: [
-      ...state.messages,
-      new AIMessage(`Mistral: ${sol1}`),
-      new AIMessage(`Cohere: ${sol2}`),
-    ],
-    solution_1: sol1,
-    solution_2: sol2,
+export type BattleResult = {
+  input: string;
+  solutions: {
+    mistral: string;
+    cohere: string;
   };
+  evaluation: JudgeResult;
+  conversation: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+  }>;
 };
 
-/**
- * -----------------------------
- * NODE: JUDGE (LLM BASED)
- * -----------------------------
- */
-const judgeNode: GraphNode<typeof State> = async (state) => {
-  const { solution_1, solution_2 , problem} = state;
-  const agent = createAgent({
-    model: geminiModel,
-    tools: [],
-    responseFormat: providerStrategy(JudgeSchema),
-  });
+export type BattleEvent =
+  | { type: 'status'; phase: 'generating' | 'judging'; message: string }
+  | { type: 'solution'; model: 'mistral' | 'cohere'; text: string }
+  | { type: 'judge'; judge: JudgeResult }
+  | { type: 'done'; result: BattleResult };
 
-  const judgeResponse = await agent.invoke({
-    messages: [
-      new HumanMessage(`
-Compare the following two solutions and score them from 0 to 10. and tell your reasoning why you have selcted that model.
-Return structured JSON.
+const judgeModel = createAgent({
+  model: geminiModel,
+  tools: [],
+  responseFormat: providerStrategy(JudgeSchema),
+});
+
+function buildJudgePrompt(problem: string, solution1: string, solution2: string) {
+  return `
+You are judging two competing solutions for the same programming task.
+Score each solution from 0 to 10 in four categories: correctness, efficiency, readability, and completeness.
+Return structured JSON only.
+
+Programming task:
+${problem}
 
 Solution 1:
-${state.solution_1}
+${solution1}
 
 Solution 2:
-${state.solution_2}
-      `),
-    ],
-  });
+${solution2}
 
-  const result = judgeResponse.structuredResponse;
+Requirements:
+- Provide a numeric score for each category.
+- Add a brief note for each solution.
+- Pick the overall winner.
+- Write a short plain-English explanation for why the winner won.
+`;
+}
 
-  console.log("🏆 Judge Result:", result);
+async function generateSolutions(userMessage: string) {
+  const messages = [new HumanMessage(userMessage)];
+
+  const [mistralRes, cohereRes] = await Promise.all([
+    mistralModel.invoke(messages),
+    cohereModel.invoke(messages),
+  ]);
 
   return {
-    messages: [
-      ...state.messages,
-      new AIMessage(
-        `Judge → S1: ${result.solution_1_score}, S2: ${result.solution_2_score}, Winner: ${result.winner}`
-      ),
-    ],
-    judge: result,
+    mistral: String(mistralRes.content),
+    cohere: String(cohereRes.content),
   };
-};
+}
 
-/**
- * -----------------------------
- * GRAPH
- * -----------------------------
- */
-const graph = new StateGraph(State)
-  .addNode("solution", solutionNode)
-  .addNode("judgeNode", judgeNode) // ✅ renamed
-
-  .addEdge(START, "solution")
-  .addEdge("solution", "judgeNode")
-  .addEdge("judgeNode", END)
-
-  .compile();
-
-/**
- * -----------------------------
- * ENTRY FUNCTION
- * -----------------------------
- */
-export default async function runGraph(userMessage: string) {
-  const result = await graph.invoke({
-    messages: [new HumanMessage(userMessage)],
+async function judgeSolutions(
+  problem: string,
+  solution1: string,
+  solution2: string,
+): Promise<JudgeResult> {
+  const judgeResponse = await judgeModel.invoke({
+    messages: [
+      new HumanMessage(buildJudgePrompt(problem, solution1, solution2)),
+    ],
   });
+
+  return judgeResponse.structuredResponse as JudgeResult;
+}
+
+function buildConversation(input: string, solution1: string, solution2: string, evaluation: JudgeResult) {
+  return [
+    {
+      role: 'user' as const,
+      content: input,
+    },
+    {
+      role: 'assistant' as const,
+      content: `Mistral solution:\n${solution1}`,
+    },
+    {
+      role: 'assistant' as const,
+      content: `Cohere solution:\n${solution2}`,
+    },
+    {
+      role: 'assistant' as const,
+      content: `Judge winner: ${evaluation.winner}. ${evaluation.winner_explanation}`,
+    },
+  ];
+}
+
+export async function runBattle(userMessage: string): Promise<BattleResult> {
+  const solutions = await generateSolutions(userMessage);
+  const evaluation = await judgeSolutions(userMessage, solutions.mistral, solutions.cohere);
 
   return {
     input: userMessage,
-
-    solutions: {
-      mistral: result.solution_1,
-      cohere: result.solution_2,
-    },
-
-    evaluation: result.judge,
-
-    conversation: result.messages.map((m) => ({
-      type: m._getType(),
-      content: m.content,
-    })),
+    solutions,
+    evaluation,
+    conversation: buildConversation(userMessage, solutions.mistral, solutions.cohere, evaluation),
   };
 }
+
+export async function streamBattle(
+  userMessage: string,
+  onEvent: (event: BattleEvent) => void,
+): Promise<BattleResult> {
+  onEvent({
+    type: 'status',
+    phase: 'generating',
+    message: 'Generating both model solutions...',
+  });
+
+  const messages = [new HumanMessage(userMessage)];
+  const solutions: { mistral: string; cohere: string } = { mistral: '', cohere: '' };
+
+  const tasks = [
+    mistralModel.invoke(messages).then((result) => {
+      solutions.mistral = String(result.content);
+      onEvent({ type: 'solution', model: 'mistral', text: solutions.mistral });
+    }),
+    cohereModel.invoke(messages).then((result) => {
+      solutions.cohere = String(result.content);
+      onEvent({ type: 'solution', model: 'cohere', text: solutions.cohere });
+    }),
+  ];
+
+  await Promise.all(tasks);
+
+  onEvent({
+    type: 'status',
+    phase: 'judging',
+    message: 'Judging the two solutions...',
+  });
+
+  const evaluation = await judgeSolutions(userMessage, solutions.mistral, solutions.cohere);
+  const result = {
+    input: userMessage,
+    solutions,
+    evaluation,
+    conversation: buildConversation(userMessage, solutions.mistral, solutions.cohere, evaluation),
+  };
+
+  onEvent({ type: 'judge', judge: evaluation });
+  onEvent({ type: 'done', result });
+
+  return result;
+}
+
+export { JudgeSchema };

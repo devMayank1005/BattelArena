@@ -1,35 +1,67 @@
-import  express  from "express";
-import useGraph from "./services/graph.ai.service.js";
-import cors from "cors";
+import cors from 'cors';
+import express from 'express';
+import { runBattle, streamBattle } from './services/graph.ai.service.ts';
+import type { BattleEvent } from './services/graph.ai.service.ts';
+
 const app = express();
-app.use(express.json())
-app.use(cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true,
-}))
 
+app.use(express.json());
+app.use(
+    cors({
+        origin: 'http://localhost:5173',
+        methods: ['GET', 'POST'],
+        credentials: true,
+    }),
+);
 
-app.get('/', async (req, res) => {
+function sendSse(res: express.Response, event: string, payload: unknown) {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
 
-    const result = await useGraph("Write an code for Factorial function in js")
+app.get('/', async (_req, res) => {
+    const result = await runBattle('Write an code for Factorial function in js');
 
-    res.json(result)
-})
+    res.json(result);
+});
 
-app.post("/invoke", async (req, res) => {
-
-    const { input } = req.body
-    const result = await useGraph(input)
+app.post('/invoke', async (req, res) => {
+    const { input } = req.body;
+    const result = await runBattle(input);
 
     res.status(200).json({
-        message: "Graph executed successfully",
+        message: 'Graph executed successfully',
         success: true,
-        result
-    })
+        result,
+    });
+});
 
-})
+app.post('/invoke/stream', async (req, res) => {
+    const { input } = req.body;
 
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
 
+    try {
+        const result = await streamBattle(input, (event: BattleEvent) => {
+            sendSse(res, event.type, event);
+        });
+
+        sendSse(res, 'complete', {
+            success: true,
+            result,
+        });
+        res.end();
+    } catch (error) {
+        sendSse(res, 'error', {
+            success: false,
+            message: error instanceof Error ? error.message : 'Failed to run battle',
+        });
+        res.end();
+    }
+});
 
 export default app;

@@ -31,25 +31,54 @@ function sendSse(res: express.Response, event: string, payload: unknown) {
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-app.get('/', async (_req, res) => {
-    const result = await runBattle('Write an code for Factorial function in js');
+app.get('/', (_req, res) => {
+    res.status(200).json({
+        ok: true,
+        service: 'battelarena-api',
+    });
+});
 
-    res.json(result);
+app.get('/health', (_req, res) => {
+    res.status(200).json({ ok: true });
 });
 
 app.post('/invoke', async (req, res) => {
-    const { input } = req.body;
-    const result = await runBattle(input);
+    try {
+        const { input } = req.body;
 
-    res.status(200).json({
-        message: 'Graph executed successfully',
-        success: true,
-        result,
-    });
+        if (!input || typeof input !== 'string') {
+            res.status(400).json({
+                success: false,
+                message: 'input is required and must be a string',
+            });
+            return;
+        }
+
+        const result = await runBattle(input);
+
+        res.status(200).json({
+            message: 'Graph executed successfully',
+            success: true,
+            result,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : 'Failed to run battle',
+        });
+    }
 });
 
 app.post('/invoke/stream', async (req, res) => {
     const { input } = req.body;
+
+    if (!input || typeof input !== 'string') {
+        res.status(400).json({
+            success: false,
+            message: 'input is required and must be a string',
+        });
+        return;
+    }
 
     res.status(200);
     res.setHeader('Content-Type', 'text/event-stream');

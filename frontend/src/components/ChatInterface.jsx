@@ -210,6 +210,11 @@ export default function ChatInterface() {
   const dragOpenedRef = useRef(false);
 
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+  const isInvalidProductionApiBase =
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    apiBaseUrl.includes('localhost');
 
   const activeSessionBattles = useMemo(
     () => battles.filter((battle) => battle.sessionId === activeSessionId),
@@ -249,6 +254,12 @@ export default function ChatInterface() {
       setActiveSessionId(historySessions[0]?.id || sessions[0].id);
     }
   }, [sessions, activeSessionId, historySessions]);
+
+  useEffect(() => {
+    if (isInvalidProductionApiBase) {
+      setErrorMessage('Invalid VITE_API_BASE_URL for production. Set it to your Render URL, not localhost.');
+    }
+  }, [isInvalidProductionApiBase]);
 
   const registerBattleRef = (id) => (node) => {
     if (node) {
@@ -379,6 +390,10 @@ export default function ChatInterface() {
   };
 
   const streamBattle = async (prompt, battleId) => {
+    if (isInvalidProductionApiBase) {
+      throw new Error('VITE_API_BASE_URL points to localhost in production');
+    }
+
     const response = await fetch(`${apiBaseUrl}/invoke/stream`, {
       method: 'POST',
       headers: {

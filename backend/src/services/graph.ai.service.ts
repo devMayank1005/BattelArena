@@ -50,19 +50,16 @@ const State = new StateSchema({
     { reducer: (_, next) => next }
   ),
 
-    judge: new ReducedValue(
-      JudgeSchema.default({
-        solution_1_score: 0,
-        solution_2_score: 0,
-        solution_1_reasoning: "",
-        solution_2_reasoning: "",
-        systemPrompt: `You are an impartial judge comparing two solutions to a problem.
-  Score each solution from 0 to 10 based on its effectiveness, creativity, and relevance to the problem.
-  Provide reasoning for each score.`,
-        winner: "solution_1",
-      }),
-      { reducer: (_, next) => next }
-    ),
+  judge: new ReducedValue(
+    JudgeSchema.default({
+      solution_1_score: 0,
+      solution_2_score: 0,
+      solution_1_reasoning: "",
+      solution_2_reasoning: "",
+      winner: "solution_1",
+    }),
+    { reducer: (_, next) => next }
+  ),
 });
 
 /**

@@ -5,7 +5,7 @@ import config  from "../config/config.js";
 
 export const geminiModel = new ChatGoogle({
    apiKey: config.GOOGLE_API_KEY,
-   model: "gemini-flash-latest",
+   model: "gemini-3-flash-preview",
  
 });
 

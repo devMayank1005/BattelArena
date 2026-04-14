@@ -1,5 +1,14 @@
 import { config } from "dotenv";
 config();
+const REQUIRED_ENV_KEYS = [
+    "MONGO_URI",
+    "JWT_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "GOOGLE_CALLBACK_URI",
+    "FRONTEND_ORIGIN",
+    "FRONTEND_URL",
+];
 const env = {
     GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "",
     MISTRALAI_API_KEY: process.env.MISTRALAI_API_KEY || process.env.MISTRAL_API_KEY || "",
@@ -16,4 +25,7 @@ const env = {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
     GOOGLE_CALLBACK_URI: process.env.GOOGLE_CALLBACK_URI || "http://localhost:3000/api/v1/auth/google/callback",
 };
+export function getMissingRequiredEnv() {
+    return REQUIRED_ENV_KEYS.filter((key) => !env[key] || String(env[key]).trim() === "").map(String);
+}
 export default env;

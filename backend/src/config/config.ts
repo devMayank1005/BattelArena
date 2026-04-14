@@ -18,6 +18,16 @@ type Env = {
   GOOGLE_CALLBACK_URI: string;
 };
 
+const REQUIRED_ENV_KEYS: Array<keyof Env> = [
+  "MONGO_URI",
+  "JWT_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_CALLBACK_URI",
+  "FRONTEND_ORIGIN",
+  "FRONTEND_URL",
+];
+
 const env: Env = {
   GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "",
   MISTRALAI_API_KEY: process.env.MISTRALAI_API_KEY || process.env.MISTRAL_API_KEY || "",
@@ -37,5 +47,9 @@ const env: Env = {
   GOOGLE_CALLBACK_URI:
     process.env.GOOGLE_CALLBACK_URI || "http://localhost:3000/api/v1/auth/google/callback",
 };
+
+export function getMissingRequiredEnv(): string[] {
+  return REQUIRED_ENV_KEYS.filter((key) => !env[key] || String(env[key]).trim() === "").map(String);
+}
 
 export default env;

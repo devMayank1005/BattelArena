@@ -2,6 +2,14 @@ import userModel from '../models/user.model.js';
 import env from '../config/config.js';
 import redisClient from '../config/cache.js';
 import jwt from 'jsonwebtoken';
+const isProduction = process.env.NODE_ENV === 'production';
+const authCookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
+    path: '/',
+};
 const registerController = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -21,10 +29,7 @@ const registerController = async (req, res) => {
             expiresIn: '1d',
         });
         res.cookie('token', token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'strict',
-            maxAge: 24 * 60 * 60 * 1000,
+            ...authCookieOptions,
         });
         res.status(201).json({
             success: true,
@@ -67,10 +72,7 @@ const loginController = async (req, res) => {
             expiresIn: '1d',
         });
         res.cookie('token', token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'strict',
-            maxAge: 24 * 60 * 60 * 1000,
+            ...authCookieOptions,
         });
         res.status(200).json({
             success: true,
@@ -98,7 +100,12 @@ const logoutController = async (req, res) => {
             });
         }
         await redisClient.set(token, Date.now(), 'EX', 3 * 24 * 60 * 60);
-        res.clearCookie('token');
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: authCookieOptions.secure,
+            sameSite: authCookieOptions.sameSite,
+            path: '/',
+        });
         res.status(200).json({
             success: true,
             message: 'User logged out successfully ✅',
@@ -159,10 +166,7 @@ const googleCallbackController = async (req, res) => {
             expiresIn: '1d',
         });
         res.cookie('token', token, {
-            httpOnly: true,
-            secure: false,
-            sameSite: 'strict',
-            maxAge: 24 * 60 * 60 * 1000,
+            ...authCookieOptions,
         });
         res.redirect(env.FRONTEND_URL + '/');
     }

@@ -19,6 +19,7 @@ export function getBattleStreamUrl() {
 export async function createBattleStream(input) {
 	const response = await fetch(getBattleStreamUrl(), {
 		method: 'POST',
+		credentials: 'include',
 		headers: {
 			'Content-Type': 'application/json',
 		},

@@ -2,6 +2,7 @@ import express from 'express';
 import morgan from 'morgan';
 import passport from 'passport';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
@@ -17,6 +18,12 @@ void __dirname;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(
+    cors({
+        origin: env.FRONTEND_ORIGIN,
+        credentials: true,
+    }),
+);
 app.use(passport.initialize());
 passport.use(
     new GoogleStrategy(

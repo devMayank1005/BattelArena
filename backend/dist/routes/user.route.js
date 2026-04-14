@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import authValidator from '../validator/auth.validator.js';
+import { getmeController, googleCallbackController, loginController, logoutController, registerController, } from '../controllers/user.controller.js';
+const router = Router();
+router.post('/auth/signup', authValidator, registerController);
+router.post('/auth/login', authValidator, loginController);
+router.post('/auth/logout', authMiddleware, logoutController);
+router.get('/auth/google/callback', googleCallbackController);
+router.get('/me', authMiddleware, getmeController);
+export default router;

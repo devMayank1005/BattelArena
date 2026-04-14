@@ -50,15 +50,17 @@ function SolutionPanel({ title, accentClass, solution, isStreaming, iconSrc, ico
               ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-4 text-zinc-700 dark:text-zinc-300 space-y-1" {...props} />,
               ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-4 text-zinc-700 dark:text-zinc-300 space-y-1" {...props} />,
               a: ({ node, ...props }) => <a className="text-blue-600 hover:text-blue-500 underline" {...props} />,
-              code: ({ node, inline, className, children, ...props }) => {
-                return !inline ? (
-                  <div className="rounded-xl overflow-hidden my-4 border border-zinc-200 dark:border-zinc-800">
-                    <pre className="p-4 bg-zinc-950 overflow-x-auto text-sm text-zinc-100">
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    </pre>
-                  </div>
+              pre: ({ node, ...props }) => (
+                <div className="rounded-xl overflow-hidden my-4 border border-zinc-200 dark:border-zinc-800">
+                  <pre className="p-4 bg-zinc-950 overflow-x-auto text-sm text-zinc-100" {...props} />
+                </div>
+              ),
+              code: ({ node, className, children, ...props }) => {
+                const isBlockCode = Boolean(className && className.startsWith('language-'));
+                return isBlockCode ? (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
                 ) : (
                   <code className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-1.5 py-0.5 rounded-md text-sm font-mono" {...props}>
                     {children}

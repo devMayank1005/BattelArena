@@ -3,9 +3,6 @@ config();
 const REQUIRED_ENV_KEYS = [
     "MONGO_URI",
     "JWT_SECRET",
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-    "GOOGLE_CALLBACK_URI",
     "FRONTEND_ORIGIN",
     "FRONTEND_URL",
 ];
@@ -27,5 +24,12 @@ const env = {
 };
 export function getMissingRequiredEnv() {
     return REQUIRED_ENV_KEYS.filter((key) => !env[key] || String(env[key]).trim() === "").map(String);
+}
+export function getAllowedOrigins() {
+    const values = [env.FRONTEND_ORIGIN, env.FRONTEND_URL]
+        .flatMap((value) => String(value).split(','))
+        .map((value) => value.trim())
+        .filter(Boolean);
+    return [...new Set(values)];
 }
 export default env;

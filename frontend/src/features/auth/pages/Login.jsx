@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import CTAButton from '../components/CTAButton';
 import GoogleOAuthButton from '../components/GoogleOAuthButton';
 import Navbar from '../components/Navbar';
@@ -7,7 +7,6 @@ import Toaster from '../components/Toaster';
 import useAuth from '../hooks/useAuth';
 
 export default function Login() {
-	const navigate = useNavigate();
 	const location = useLocation();
 	const { login, isLoading, isAuthenticated, authError, clearError } = useAuth();
 	const [form, setForm] = useState({ email: '', password: '' });
@@ -31,7 +30,6 @@ export default function Login() {
 
 		try {
 			await login(form);
-			navigate(fromPath, { replace: true });
 		} catch {
 			// Error is surfaced via auth context.
 		}

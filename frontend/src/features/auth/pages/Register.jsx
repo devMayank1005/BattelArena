@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import CTAButton from '../components/CTAButton';
 import GoogleOAuthButton from '../components/GoogleOAuthButton';
 import Navbar from '../components/Navbar';
@@ -7,7 +7,6 @@ import Toaster from '../components/Toaster';
 import useAuth from '../hooks/useAuth';
 
 export default function Register() {
-	const navigate = useNavigate();
 	const { register, isLoading, isAuthenticated, authError, clearError } = useAuth();
 	const [form, setForm] = useState({ email: '', password: '' });
 
@@ -28,7 +27,6 @@ export default function Register() {
 
 		try {
 			await register(form);
-			navigate('/arena', { replace: true });
 		} catch {
 			// Error is surfaced via auth context.
 		}

@@ -8,7 +8,7 @@ export default function Home() {
 	const { isAuthenticated, authError, clearError } = useAuth();
 
 	return (
-		<div className="min-h-screen bg-zinc-50">
+		<div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
 			<Navbar />
 			<HeroSection isAuthenticated={isAuthenticated} />
 			<FeatureSteps />

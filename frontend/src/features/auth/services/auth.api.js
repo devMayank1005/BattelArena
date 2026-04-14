@@ -1,6 +1,10 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 const AUTH_BASE_PATH = `${API_BASE_URL}/v1/auth`;
 
+export function getGoogleOAuthUrl() {
+	return `${AUTH_BASE_PATH}/google`;
+}
+
 function buildHttpError(message, status) {
 	const error = new Error(message || 'Request failed');
 	error.status = status;

@@ -19,8 +19,8 @@ export default function Toaster({ message, onClose, variant = 'error' }) {
 
 	const colorClassName =
 		variant === 'success'
-			? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-			: 'border-red-200 bg-red-50 text-red-700';
+			? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+			: 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900 dark:text-red-200';
 
 	return (
 		<div className="fixed right-4 top-4 z-50">

@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+import { getApiBaseUrl } from '../../../utils/api-base-url.js';
+
+const API_BASE_URL = getApiBaseUrl();
 const AUTH_BASE_PATH = `${API_BASE_URL}/v1/auth`;
 const REQUEST_TIMEOUT_MS = 15000;
 

@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+import { getApiBaseUrl } from '../../../utils/api-base-url.js';
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const BATTLE_STORAGE_KEY = 'battelarena:battles';
 export const SESSION_STORAGE_KEY = 'battelarena:sessions';

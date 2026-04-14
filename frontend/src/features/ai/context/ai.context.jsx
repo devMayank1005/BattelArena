@@ -13,6 +13,7 @@ import {
 import { ensureSessionInList, updateBattleInList, upsertBattleInList } from './arena-state';
 import { consumeSseStream } from './arena-stream';
 import { selectActiveSessionBattles, selectHistorySessions } from './arena-selectors';
+import { getApiBaseUrl, isInvalidProductionApiBase } from '../../../utils/api-base-url.js';
 
 export const ArenaContext = createContext(null);
 
@@ -67,12 +68,8 @@ export function ArenaProvider({ children }) {
 	const dragStartXRef = useRef(null);
 	const dragOpenedRef = useRef(false);
 
-	const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
-	const isInvalidProductionApiBase =
-		typeof window !== 'undefined' &&
-		window.location.hostname !== 'localhost' &&
-		window.location.hostname !== '127.0.0.1' &&
-		apiBaseUrl.includes('localhost');
+	const apiBaseUrl = getApiBaseUrl();
+	const hasInvalidProductionApiBase = isInvalidProductionApiBase(apiBaseUrl);
 
 	const activeSessionBattles = useMemo(
 		() => selectActiveSessionBattles(battles, activeSessionId),
@@ -106,10 +103,10 @@ export function ArenaProvider({ children }) {
 	}, [sessions, activeSessionId, historySessions]);
 
 	useEffect(() => {
-		if (isInvalidProductionApiBase) {
+		if (hasInvalidProductionApiBase) {
 			setErrorMessage('Invalid VITE_API_BASE_URL for production. Set it to your Render URL, not localhost.');
 		}
-	}, [isInvalidProductionApiBase]);
+	}, [hasInvalidProductionApiBase]);
 
 	const ensureSession = (sessionId, titleHint) => {
 		setSessions((currentSessions) => ensureSessionInList(currentSessions, sessionId, titleHint));
@@ -180,7 +177,7 @@ export function ArenaProvider({ children }) {
 	};
 
 	const streamBattle = async (prompt, battleId) => {
-		if (isInvalidProductionApiBase) {
+		if (hasInvalidProductionApiBase) {
 			throw new Error('VITE_API_BASE_URL points to localhost in production');
 		}
 

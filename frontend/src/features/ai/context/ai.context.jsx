@@ -1,133 +1,20 @@
 import { createContext, useEffect, useMemo, useRef, useState } from 'react';
 import { BATTLE_STORAGE_KEY, SESSION_STORAGE_KEY, createBattleStream } from '../services/battle.api';
+import {
+	buildSessionsFromBattles,
+	createBattle,
+	createSession,
+	loadFromStorage,
+	normalizeStoredBattle,
+	normalizeStoredSession,
+	persistToStorage,
+	promptSnippet,
+} from './arena-storage';
+import { ensureSessionInList, updateBattleInList, upsertBattleInList } from './arena-state';
+import { consumeSseStream } from './arena-stream';
+import { selectActiveSessionBattles, selectHistorySessions } from './arena-selectors';
 
 export const ArenaContext = createContext(null);
-
-function loadFromStorage(key) {
-	if (typeof window === 'undefined') {
-		return [];
-	}
-
-	try {
-		const raw = window.localStorage.getItem(key);
-		if (!raw) {
-			return [];
-		}
-
-		const parsed = JSON.parse(raw);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch {
-		return [];
-	}
-}
-
-function normalizeStoredSession(session) {
-	if (!session || typeof session !== 'object' || !session.id) {
-		return null;
-	}
-
-	return {
-		id: String(session.id),
-		title: session.title || 'New Chat',
-		createdAt: session.createdAt || new Date().toISOString(),
-		updatedAt: session.updatedAt || new Date().toISOString(),
-	};
-}
-
-function normalizeStoredBattle(battle) {
-	if (!battle || typeof battle !== 'object') {
-		return null;
-	}
-
-	return {
-		id: battle.id ?? Date.now(),
-		sessionId: String(battle.sessionId || 'session-legacy'),
-		prompt: battle.prompt ?? battle.problem ?? '',
-		status: battle.status ?? (battle.judge ? 'complete' : 'streaming'),
-		solution1: battle.solution1 ?? battle.solution_1 ?? battle.solutions?.mistral ?? '',
-		solution2: battle.solution2 ?? battle.solution_2 ?? battle.solutions?.cohere ?? '',
-		judge: battle.judge ?? battle.evaluation ?? null,
-		errorMessage: battle.errorMessage ?? '',
-		createdAt: battle.createdAt ?? new Date().toISOString(),
-		updatedAt: battle.updatedAt ?? new Date().toISOString(),
-	};
-}
-
-function promptSnippet(prompt) {
-	return prompt.length > 72 ? `${prompt.slice(0, 72)}...` : prompt;
-}
-
-function createSession(id, title = 'New Chat') {
-	const now = new Date().toISOString();
-	return {
-		id,
-		title,
-		createdAt: now,
-		updatedAt: now,
-	};
-}
-
-function createBattle(prompt, id, sessionId) {
-	const now = new Date().toISOString();
-
-	return {
-		id,
-		sessionId,
-		prompt,
-		status: 'streaming',
-		solution1: '',
-		solution2: '',
-		judge: null,
-		errorMessage: '',
-		createdAt: now,
-		updatedAt: now,
-	};
-}
-
-function buildSessionsFromBattles(battles) {
-	const map = new Map();
-
-	for (const battle of battles) {
-		const existing = map.get(battle.sessionId);
-		const title = existing?.title || promptSnippet(battle.prompt || 'New Chat');
-
-		map.set(battle.sessionId, {
-			id: battle.sessionId,
-			title,
-			createdAt: existing?.createdAt || battle.createdAt,
-			updatedAt: battle.updatedAt,
-		});
-	}
-
-	return Array.from(map.values());
-}
-
-function parseSseBlock(block) {
-	const event = { type: 'message', data: '' };
-	const lines = block.split('\n');
-
-	for (const line of lines) {
-		if (line.startsWith('event:')) {
-			event.type = line.slice(6).trim();
-		}
-
-		if (line.startsWith('data:')) {
-			event.data += line.slice(5).trimStart();
-		}
-	}
-
-	try {
-		return {
-			type: event.type,
-			data: event.data ? JSON.parse(event.data) : null,
-		};
-	} catch {
-		return {
-			type: event.type,
-			data: event.data,
-		};
-	}
-}
 
 export function ArenaProvider({ children }) {
 	const [battles, setBattles] = useState(() =>
@@ -188,27 +75,21 @@ export function ArenaProvider({ children }) {
 		apiBaseUrl.includes('localhost');
 
 	const activeSessionBattles = useMemo(
-		() => battles.filter((battle) => battle.sessionId === activeSessionId),
+		() => selectActiveSessionBattles(battles, activeSessionId),
 		[battles, activeSessionId],
 	);
 
 	const historySessions = useMemo(
-		() => [...sessions].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+		() => selectHistorySessions(sessions),
 		[sessions],
 	);
 
 	useEffect(() => {
-		if (typeof window === 'undefined') {
-			return;
-		}
-		window.localStorage.setItem(BATTLE_STORAGE_KEY, JSON.stringify(battles));
+		persistToStorage(BATTLE_STORAGE_KEY, battles);
 	}, [battles]);
 
 	useEffect(() => {
-		if (typeof window === 'undefined') {
-			return;
-		}
-		window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions));
+		persistToStorage(SESSION_STORAGE_KEY, sessions);
 	}, [sessions]);
 
 	useEffect(() => {
@@ -231,67 +112,15 @@ export function ArenaProvider({ children }) {
 	}, [isInvalidProductionApiBase]);
 
 	const ensureSession = (sessionId, titleHint) => {
-		setSessions((currentSessions) => {
-			const existing = currentSessions.find((session) => session.id === sessionId);
-
-			if (existing) {
-				return currentSessions.map((session) =>
-					session.id === sessionId
-						? {
-								...session,
-								title:
-									session.title === 'New Chat' || /^Chat \d+$/.test(session.title)
-										? titleHint || session.title
-										: session.title,
-								updatedAt: new Date().toISOString(),
-							}
-						: session,
-				);
-			}
-
-			return [
-				{
-					...createSession(sessionId, titleHint || 'New Chat'),
-					updatedAt: new Date().toISOString(),
-				},
-				...currentSessions,
-			];
-		});
+		setSessions((currentSessions) => ensureSessionInList(currentSessions, sessionId, titleHint));
 	};
 
 	const updateBattle = (id, updater) => {
-		setBattles((currentBattles) =>
-			currentBattles.map((battle) => {
-				if (battle.id !== id) {
-					return battle;
-				}
-
-				return {
-					...battle,
-					...updater(battle),
-					updatedAt: new Date().toISOString(),
-				};
-			}),
-		);
+		setBattles((currentBattles) => updateBattleInList(currentBattles, id, updater));
 	};
 
 	const upsertBattle = (battle) => {
-		setBattles((currentBattles) => {
-			const exists = currentBattles.some((item) => item.id === battle.id);
-
-			if (exists) {
-				return currentBattles.map((item) =>
-					item.id === battle.id
-						? {
-								...battle,
-								updatedAt: new Date().toISOString(),
-							}
-						: item,
-				);
-			}
-
-			return [...currentBattles, battle];
-		});
+		setBattles((currentBattles) => upsertBattleInList(currentBattles, battle));
 	};
 
 	const setBattleError = (id, message) => {
@@ -356,29 +185,7 @@ export function ArenaProvider({ children }) {
 		}
 
 		const response = await createBattleStream(prompt);
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = '';
-
-		while (true) {
-			const { value, done } = await reader.read();
-			buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-
-			let separatorIndex = buffer.indexOf('\n\n');
-			while (separatorIndex !== -1) {
-				const block = buffer.slice(0, separatorIndex).trim();
-				buffer = buffer.slice(separatorIndex + 2);
-				if (block) {
-					const event = parseSseBlock(block);
-					applyStreamEvent(battleId, event);
-				}
-				separatorIndex = buffer.indexOf('\n\n');
-			}
-
-			if (done) {
-				break;
-			}
-		}
+		await consumeSseStream(response, (event) => applyStreamEvent(battleId, event));
 	};
 
 	const createAndActivateSession = () => {

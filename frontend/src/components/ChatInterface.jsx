@@ -1,9 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import UserMessage from './UserMessage';
 import ArenaResponse from './ArenaResponse';
-
-const BATTLES_STORAGE_KEY = 'battelarena:battles';
-const SESSIONS_STORAGE_KEY = 'battelarena:sessions';
+import userArena from '../features/ai/hooks/userArena';
 
 const FEATURE_ITEMS = [
   'Streaming multi-model responses',
@@ -13,132 +11,6 @@ const FEATURE_ITEMS = [
   'Retry failed battles instantly',
   'Session-based chat history',
 ];
-
-function loadFromStorage(key) {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function normalizeStoredSession(session) {
-  if (!session || typeof session !== 'object' || !session.id) {
-    return null;
-  }
-
-  return {
-    id: String(session.id),
-    title: session.title || 'New Chat',
-    createdAt: session.createdAt || new Date().toISOString(),
-    updatedAt: session.updatedAt || new Date().toISOString(),
-  };
-}
-
-function normalizeStoredBattle(battle) {
-  if (!battle || typeof battle !== 'object') {
-    return null;
-  }
-
-  return {
-    id: battle.id ?? Date.now(),
-    sessionId: String(battle.sessionId || 'session-legacy'),
-    prompt: battle.prompt ?? battle.problem ?? '',
-    status: battle.status ?? (battle.judge ? 'complete' : 'streaming'),
-    solution1: battle.solution1 ?? battle.solution_1 ?? battle.solutions?.mistral ?? '',
-    solution2: battle.solution2 ?? battle.solution_2 ?? battle.solutions?.cohere ?? '',
-    judge: battle.judge ?? battle.evaluation ?? null,
-    errorMessage: battle.errorMessage ?? '',
-    createdAt: battle.createdAt ?? new Date().toISOString(),
-    updatedAt: battle.updatedAt ?? new Date().toISOString(),
-  };
-}
-
-function promptSnippet(prompt) {
-  return prompt.length > 72 ? `${prompt.slice(0, 72)}...` : prompt;
-}
-
-function createSession(id, title = 'New Chat') {
-  const now = new Date().toISOString();
-  return {
-    id,
-    title,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function createBattle(prompt, id, sessionId) {
-  const now = new Date().toISOString();
-
-  return {
-    id,
-    sessionId,
-    prompt,
-    status: 'streaming',
-    solution1: '',
-    solution2: '',
-    judge: null,
-    errorMessage: '',
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function buildSessionsFromBattles(battles) {
-  const map = new Map();
-
-  for (const battle of battles) {
-    const existing = map.get(battle.sessionId);
-    const title = existing?.title || promptSnippet(battle.prompt || 'New Chat');
-
-    map.set(battle.sessionId, {
-      id: battle.sessionId,
-      title,
-      createdAt: existing?.createdAt || battle.createdAt,
-      updatedAt: battle.updatedAt,
-    });
-  }
-
-  return Array.from(map.values());
-}
-
-function parseSseBlock(block) {
-  const event = { type: 'message', data: '' };
-  const lines = block.split('\n');
-
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      event.type = line.slice(6).trim();
-    }
-
-    if (line.startsWith('data:')) {
-      event.data += line.slice(5).trimStart();
-    }
-  }
-
-  try {
-    return {
-      type: event.type,
-      data: event.data ? JSON.parse(event.data) : null,
-    };
-  } catch {
-    return {
-      type: event.type,
-      data: event.data,
-    };
-  }
-}
 
 function statusBadge(status) {
   if (status === 'streaming') {
@@ -157,74 +29,30 @@ function statusBadge(status) {
 }
 
 export default function ChatInterface() {
-  const [battles, setBattles] = useState(() =>
-    loadFromStorage(BATTLES_STORAGE_KEY).map(normalizeStoredBattle).filter(Boolean),
-  );
-  const [sessions, setSessions] = useState(() => {
-    const storedSessions = loadFromStorage(SESSIONS_STORAGE_KEY)
-      .map(normalizeStoredSession)
-      .filter(Boolean);
-
-    if (storedSessions.length > 0) {
-      return storedSessions;
-    }
-
-    const restoredBattles = loadFromStorage(BATTLES_STORAGE_KEY)
-      .map(normalizeStoredBattle)
-      .filter(Boolean);
-
-    return buildSessionsFromBattles(restoredBattles);
-  });
-  const [activeSessionId, setActiveSessionId] = useState(() => {
-    const storedSessions = loadFromStorage(SESSIONS_STORAGE_KEY)
-      .map(normalizeStoredSession)
-      .filter(Boolean)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
-    if (storedSessions.length > 0) {
-      return storedSessions[0].id;
-    }
-
-    const restoredBattles = loadFromStorage(BATTLES_STORAGE_KEY)
-      .map(normalizeStoredBattle)
-      .filter(Boolean)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
-    if (restoredBattles.length > 0) {
-      return restoredBattles[0].sessionId;
-    }
-
-    return null;
-  });
-  const [inputValue, setInputValue] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  );
-  const [isDraggingEdge, setIsDraggingEdge] = useState(false);
+  const {
+    battles,
+    activeSessionId,
+    inputValue,
+    errorMessage,
+    isSidebarOpen,
+    isDraggingEdge,
+    activeSessionBattles,
+    historySessions,
+    setInputValue,
+    setIsSidebarOpen,
+    toggleSidebar,
+    sendCurrentPrompt,
+    retryBattle,
+    newChat,
+    openSession,
+    handleEdgeDragStart,
+    handleEdgeDragMove,
+    handleEdgeDragEnd,
+  } = userArena();
 
   const endOfMessagesRef = useRef(null);
   const inputRef = useRef(null);
   const battleRefs = useRef(new Map());
-  const dragStartXRef = useRef(null);
-  const dragOpenedRef = useRef(false);
-
-  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
-  const isInvalidProductionApiBase =
-    typeof window !== 'undefined' &&
-    window.location.hostname !== 'localhost' &&
-    window.location.hostname !== '127.0.0.1' &&
-    apiBaseUrl.includes('localhost');
-
-  const activeSessionBattles = useMemo(
-    () => battles.filter((battle) => battle.sessionId === activeSessionId),
-    [battles, activeSessionId],
-  );
-
-  const historySessions = useMemo(
-    () => [...sessions].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
-    [sessions],
-  );
 
   const scrollToBottom = () => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -234,33 +62,6 @@ export default function ChatInterface() {
     scrollToBottom();
   }, [battles, activeSessionId]);
 
-  useEffect(() => {
-    window.localStorage.setItem(BATTLES_STORAGE_KEY, JSON.stringify(battles));
-  }, [battles]);
-
-  useEffect(() => {
-    window.localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
-  }, [sessions]);
-
-  useEffect(() => {
-    if (sessions.length === 0) {
-      const firstSession = createSession(`session-${Date.now()}`, 'New Chat');
-      setSessions([firstSession]);
-      setActiveSessionId(firstSession.id);
-      return;
-    }
-
-    if (!activeSessionId || !sessions.some((session) => session.id === activeSessionId)) {
-      setActiveSessionId(historySessions[0]?.id || sessions[0].id);
-    }
-  }, [sessions, activeSessionId, historySessions]);
-
-  useEffect(() => {
-    if (isInvalidProductionApiBase) {
-      setErrorMessage('Invalid VITE_API_BASE_URL for production. Set it to your Render URL, not localhost.');
-    }
-  }, [isInvalidProductionApiBase]);
-
   const registerBattleRef = (id) => (node) => {
     if (node) {
       battleRefs.current.set(id, node);
@@ -269,267 +70,19 @@ export default function ChatInterface() {
     }
   };
 
-  const ensureSession = (sessionId, titleHint) => {
-    setSessions((currentSessions) => {
-      const existing = currentSessions.find((session) => session.id === sessionId);
-
-      if (existing) {
-        return currentSessions.map((session) =>
-          session.id === sessionId
-            ? {
-                ...session,
-                title:
-                  session.title === 'New Chat' || /^Chat \d+$/.test(session.title)
-                    ? titleHint || session.title
-                    : session.title,
-                updatedAt: new Date().toISOString(),
-              }
-            : session,
-        );
-      }
-
-      return [
-        {
-          ...createSession(sessionId, titleHint || 'New Chat'),
-          updatedAt: new Date().toISOString(),
-        },
-        ...currentSessions,
-      ];
-    });
-  };
-
-  const updateBattle = (id, updater) => {
-    setBattles((currentBattles) =>
-      currentBattles.map((battle) => {
-        if (battle.id !== id) {
-          return battle;
-        }
-
-        return {
-          ...battle,
-          ...updater(battle),
-          updatedAt: new Date().toISOString(),
-        };
-      }),
-    );
-  };
-
-  const upsertBattle = (battle) => {
-    setBattles((currentBattles) => {
-      const exists = currentBattles.some((item) => item.id === battle.id);
-
-      if (exists) {
-        return currentBattles.map((item) =>
-          item.id === battle.id
-            ? {
-                ...battle,
-                updatedAt: new Date().toISOString(),
-              }
-            : item,
-        );
-      }
-
-      return [...currentBattles, battle];
-    });
-  };
-
-  const setBattleError = (id, message) => {
-    updateBattle(id, () => ({
-      status: 'error',
-      errorMessage: message,
-    }));
-  };
-
-  const applyStreamEvent = (battleId, event) => {
-    if (!event) {
-      return;
-    }
-
-    if (event.type === 'error') {
-      const message = event.data?.message || 'Unable to reach the backend. Make sure the API server is running.';
-      setErrorMessage(message);
-      setBattleError(battleId, message);
-      throw new Error(message);
-    }
-
-    if (event.type === 'status') {
-      updateBattle(battleId, () => ({
-        status: event.data?.phase ?? 'streaming',
-      }));
-      return;
-    }
-
-    if (event.type === 'solution') {
-      updateBattle(battleId, (battle) => ({
-        status: 'streaming',
-        solution1: event.data.model === 'mistral' ? event.data.text : battle.solution1,
-        solution2: event.data.model === 'cohere' ? event.data.text : battle.solution2,
-      }));
-      return;
-    }
-
-    if (event.type === 'judge') {
-      updateBattle(battleId, () => ({
-        status: 'judging',
-        judge: event.data.judge,
-      }));
-      return;
-    }
-
-    if (event.type === 'done') {
-      const result = event.data.result;
-      updateBattle(battleId, () => ({
-        status: 'complete',
-        prompt: result.input,
-        solution1: result.solutions.mistral,
-        solution2: result.solutions.cohere,
-        judge: result.evaluation,
-        errorMessage: '',
-      }));
-    }
-  };
-
-  const streamBattle = async (prompt, battleId) => {
-    if (isInvalidProductionApiBase) {
-      throw new Error('VITE_API_BASE_URL points to localhost in production');
-    }
-
-    const response = await fetch(`${apiBaseUrl}/invoke/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ input: prompt }),
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-
-      let separatorIndex = buffer.indexOf('\n\n');
-      while (separatorIndex !== -1) {
-        const block = buffer.slice(0, separatorIndex).trim();
-        buffer = buffer.slice(separatorIndex + 2);
-        if (block) {
-          const event = parseSseBlock(block);
-          applyStreamEvent(battleId, event);
-        }
-        separatorIndex = buffer.indexOf('\n\n');
-      }
-
-      if (done) {
-        break;
-      }
-    }
-  };
-
-  const createAndActivateSession = () => {
-    const id = `session-${Date.now()}`;
-    const title = `Chat ${sessions.length + 1}`;
-    const newSession = createSession(id, title);
-
-    setSessions((current) => [newSession, ...current]);
-    setActiveSessionId(id);
-
-    return id;
-  };
-
-  const startBattle = async (prompt, battleId = Date.now(), sessionIdArg = null) => {
-    const sessionId = sessionIdArg || activeSessionId || createAndActivateSession();
-    const freshBattle = createBattle(prompt, battleId, sessionId);
-
-    upsertBattle(freshBattle);
-    ensureSession(sessionId, promptSnippet(prompt));
-    setActiveSessionId(sessionId);
-    setErrorMessage('');
-
-    try {
-      await streamBattle(prompt, battleId);
-    } catch (error) {
-      const message = 'Unable to reach the backend. Make sure the API server is running.';
-      console.error('Failed to submit prompt:', error);
-      setErrorMessage(message);
-      setBattleError(battleId, message);
-    }
-  };
-
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!inputValue.trim()) {
-      return;
-    }
-
-    const prompt = inputValue.trim();
-    setInputValue('');
-    await startBattle(prompt);
+  const handleSend = async (event) => {
+    event.preventDefault();
+    await sendCurrentPrompt();
   };
 
   const handleRetry = async (battle) => {
-    await startBattle(battle.prompt, battle.id, battle.sessionId);
+    await retryBattle(battle);
     battleRefs.current.get(battle.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleNewChat = () => {
-    createAndActivateSession();
-    setInputValue('');
-    setErrorMessage('');
+    newChat();
     inputRef.current?.focus();
-
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setIsSidebarOpen(false);
-    }
-  };
-
-  const handleOpenSession = (sessionId) => {
-    setActiveSessionId(sessionId);
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setIsSidebarOpen(false);
-    }
-  };
-
-  const handleEdgeDragStart = (event) => {
-    if (isSidebarOpen) {
-      return;
-    }
-
-    const x = event.touches ? event.touches[0].clientX : event.clientX;
-    if (x > 28) {
-      return;
-    }
-
-    dragStartXRef.current = x;
-    dragOpenedRef.current = false;
-    setIsDraggingEdge(true);
-  };
-
-  const handleEdgeDragMove = (event) => {
-    if (dragStartXRef.current === null) {
-      return;
-    }
-
-    const x = event.touches ? event.touches[0].clientX : event.clientX;
-    const delta = x - dragStartXRef.current;
-
-    if (delta > 70 && !dragOpenedRef.current) {
-      dragOpenedRef.current = true;
-      setIsSidebarOpen(true);
-      setIsDraggingEdge(false);
-      dragStartXRef.current = null;
-    }
-  };
-
-  const handleEdgeDragEnd = () => {
-    dragStartXRef.current = null;
-    dragOpenedRef.current = false;
-    setIsDraggingEdge(false);
   };
 
   const sidebarContent = (
@@ -578,7 +131,7 @@ export default function ChatInterface() {
                 <button
                   key={session.id}
                   type="button"
-                  onClick={() => handleOpenSession(session.id)}
+                  onClick={() => openSession(session.id)}
                   className={`w-full rounded-2xl border px-3 py-3 text-left transition-all hover:-translate-y-0.5 ${
                     isActive
                       ? 'border-blue-500 bg-blue-50 dark:border-blue-500/60 dark:bg-blue-950/40'
@@ -615,7 +168,7 @@ export default function ChatInterface() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            onClick={toggleSidebar}
             className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200"
           >
             {isSidebarOpen ? 'Close menu' : 'Open menu'}

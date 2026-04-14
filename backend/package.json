@@ -22,10 +22,10 @@
     "@types/node": "^25.6.0",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
+    "tsx": "^4.21.0"
   },
   "dependencies": {
+    "typescript": "^6.0.2",
     "@langchain/cohere": "^1.0.4",
     "@langchain/core": "^1.1.39",
     "@langchain/google": "^0.1.10",

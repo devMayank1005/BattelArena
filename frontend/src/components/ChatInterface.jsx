@@ -97,7 +97,15 @@ export default function ChatInterface() {
             />
           )}
 
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={(
+              <section className={`min-h-[60vh] transition-[padding] duration-300 ${isSidebarOpen ? 'lg:pl-[320px]' : 'lg:pl-0'}`}>
+                <div className="h-full min-h-[60vh] flex items-center justify-center rounded-3xl border border-dashed border-zinc-300 bg-white/70 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400">
+                  Loading chat...
+                </div>
+              </section>
+            )}
+          >
             <ChatSidebar
               battles={battles}
               historySessions={historySessions}

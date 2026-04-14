@@ -1,9 +1,10 @@
 import { invokeGraph } from '../services/graph.service.js';
+import { streamBattle } from '../services/graph.ai.service.js';
 import { type Request, type Response } from 'express';
 
 const battleController = async (req: Request, res: Response) => {
 	try {
-		const { query } = req.body;
+		const query = req.body?.query ?? req.body?.input;
 		if (!query) {
 			return res.status(400).json({
 				message: 'Query is required',
@@ -23,4 +24,36 @@ const battleController = async (req: Request, res: Response) => {
 	}
 };
 
-export { battleController };
+const battleStreamController = async (req: Request, res: Response) => {
+	try {
+		const query = req.body?.query ?? req.body?.input;
+		if (!query) {
+			return res.status(400).json({
+				message: 'Query is required',
+			});
+		}
+
+		res.setHeader('Content-Type', 'text/event-stream');
+		res.setHeader('Cache-Control', 'no-cache');
+		res.setHeader('Connection', 'keep-alive');
+		res.flushHeaders();
+
+		const sendEvent = (eventType: string, payload: unknown) => {
+			res.write(`event: ${eventType}\n`);
+			res.write(`data: ${JSON.stringify(payload)}\n\n`);
+		};
+
+		await streamBattle(query, (event) => {
+			sendEvent(event.type, event);
+		});
+
+		res.end();
+	} catch (error: any) {
+		console.error('Battle Stream Controller Error:', error);
+		res.write(`event: error\n`);
+		res.write(`data: ${JSON.stringify({ message: error.message || 'Internal server error' })}\n\n`);
+		res.end();
+	}
+};
+
+export { battleController, battleStreamController };

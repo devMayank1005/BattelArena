@@ -13,7 +13,7 @@ export function clearArenaStorage() {
 }
 
 export function getBattleStreamUrl() {
-	return `${API_BASE_URL}/invoke/stream`;
+	return `${API_BASE_URL}/v1/ai/invoke/stream`;
 }
 
 export async function createBattleStream(input) {
@@ -22,7 +22,7 @@ export async function createBattleStream(input) {
 		headers: {
 			'Content-Type': 'application/json',
 		},
-		body: JSON.stringify({ input }),
+		body: JSON.stringify({ query: input }),
 	});
 
 	if (!response.ok || !response.body) {

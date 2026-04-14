@@ -203,9 +203,9 @@ export function ArenaProvider({ children }) {
 		const sessionId = sessionIdArg || activeSessionId || createAndActivateSession();
 		const freshBattle = createBattle(prompt, battleId, sessionId);
 
+		setActiveSessionId(sessionId);
 		upsertBattle(freshBattle);
 		ensureSession(sessionId, promptSnippet(prompt));
-		setActiveSessionId(sessionId);
 		setErrorMessage('');
 
 		try {

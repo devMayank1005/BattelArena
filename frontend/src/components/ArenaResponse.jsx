@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-dark.css';
 import CodeDiff from './CodeDiff';
+import mistralIcon from '../assets/mistral-color.svg';
+import cohereIcon from '../assets/cphere-color.svg';
 
 function averageScore(breakdown) {
   if (!breakdown) {
@@ -28,11 +30,13 @@ function metricPill({ label, value }) {
   );
 }
 
-function SolutionPanel({ title, accentClass, solution, isStreaming }) {
+function SolutionPanel({ title, accentClass, solution, isStreaming, iconSrc, iconAlt }) {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm flex flex-col transition-all hover:shadow-md">
       <h3 className="text-sm font-semibold tracking-wide uppercase text-zinc-500 mb-6 flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${accentClass}`}></span> {title}
+        <img src={iconSrc} alt={iconAlt} className="w-5 h-5 object-contain" loading="lazy" />
+        <span className={`w-2 h-2 rounded-full ${accentClass}`}></span>
+        {title}
       </h3>
       <div className="text-zinc-700 dark:text-zinc-300 min-h-[10rem]">
         {solution ? (
@@ -67,7 +71,10 @@ function SolutionPanel({ title, accentClass, solution, isStreaming }) {
           </ReactMarkdown>
         ) : (
           <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/40 px-4 py-8 text-sm text-zinc-500 dark:text-zinc-400">
-            {isStreaming ? 'Streaming response...' : 'Waiting for solution...'}
+            <div className="flex items-center gap-3">
+              <img src={iconSrc} alt={iconAlt} className="w-6 h-6 object-contain" loading="lazy" />
+              <span>{isStreaming ? 'Streaming response...' : 'Waiting for solution...'}</span>
+            </div>
           </div>
         )}
       </div>
@@ -117,16 +124,20 @@ export default function ArenaResponse({ battle, onRetry }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <SolutionPanel
-          title="Solution 1"
+          title="Mistral"
           accentClass="bg-emerald-500"
           solution={solution1}
           isStreaming={status === 'streaming' || status === 'judging'}
+          iconSrc={mistralIcon}
+          iconAlt="Mistral icon"
         />
         <SolutionPanel
-          title="Solution 2"
+          title="Cohere"
           accentClass="bg-violet-500"
           solution={solution2}
           isStreaming={status === 'streaming' || status === 'judging'}
+          iconSrc={cohereIcon}
+          iconAlt="Cohere icon"
         />
       </div>
 

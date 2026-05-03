@@ -8,12 +8,14 @@ import { AuthProvider } from '../features/auth/contexts/auth.context';
 import { ThemeProvider } from '../features/auth/contexts/theme.context';
 import { ArenaProvider } from '../features/ai/context/ai.context';
 import HomeArena from '../features/ai/pages/HomeArena';
+import CustomCursor from '../components/CustomCursor';
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <ArenaProvider>
+          <CustomCursor />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Home />} />

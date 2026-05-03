@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-dark.css';
+import { motion } from 'framer-motion';
 import CodeDiff from './CodeDiff';
 import mistralIcon from '../assets/mistral-color.svg';
 import cohereIcon from '../assets/cphere-color.svg';
@@ -30,12 +31,17 @@ function metricPill({ label, value }) {
   );
 }
 
-function SolutionPanel({ title, accentClass, solution, isStreaming, iconSrc, iconAlt }) {
+function SolutionPanel({ title, accentClass, solution, isStreaming, iconSrc, iconAlt, delay = 0 }) {
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm flex flex-col transition-all hover:shadow-md">
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: delay, ease: 'easeOut' }}
+      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-sm flex flex-col transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+    >
       <h3 className="text-sm font-semibold tracking-wide uppercase text-zinc-500 mb-6 flex items-center gap-2">
         <img src={iconSrc} alt={iconAlt} className="w-5 h-5 object-contain" loading="lazy" />
-        <span className={`w-2 h-2 rounded-full ${accentClass}`}></span>
+        <span className={`w-2 h-2 rounded-full shadow-sm shadow-${accentClass.split('-')[1]}-500/50 ${accentClass}`}></span>
         {title}
       </h3>
       <div className="text-zinc-700 dark:text-zinc-300 min-h-[10rem]">
@@ -80,7 +86,7 @@ function SolutionPanel({ title, accentClass, solution, isStreaming, iconSrc, ico
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -94,12 +100,26 @@ export default function ArenaResponse({ battle, onRetry }) {
   const winnerLabel = judge?.winner === 'solution_1' ? 'Solution 1' : judge?.winner === 'solution_2' ? 'Solution 2' : 'Pending';
 
   return (
-    <div className="flex flex-col gap-8 my-8 px-4 w-full">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col gap-8 my-8 px-4 w-full"
+    >
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            {status === 'streaming' && 'Streaming'}
-            {status === 'judging' && 'Judging'}
+          <span className="inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 backdrop-blur-sm">
+            {status === 'streaming' && (
+              <span className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                Streaming
+              </span>
+            )}
+            {status === 'judging' && (
+              <span className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Judging
+              </span>
+            )}
             {status === 'complete' && 'Complete'}
             {status === 'error' && 'Failed'}
           </span>
@@ -132,6 +152,7 @@ export default function ArenaResponse({ battle, onRetry }) {
           isStreaming={status === 'streaming' || status === 'judging'}
           iconSrc={mistralIcon}
           iconAlt="Mistral icon"
+          delay={0.1}
         />
         <SolutionPanel
           title="Cohere"
@@ -140,6 +161,7 @@ export default function ArenaResponse({ battle, onRetry }) {
           isStreaming={status === 'streaming' || status === 'judging'}
           iconSrc={cohereIcon}
           iconAlt="Cohere icon"
+          delay={0.2}
         />
       </div>
 
@@ -148,7 +170,12 @@ export default function ArenaResponse({ battle, onRetry }) {
       )}
 
       {judge && (
-        <div className="mt-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+        <motion.div 
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
+        >
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
@@ -195,8 +222,8 @@ export default function ArenaResponse({ battle, onRetry }) {
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

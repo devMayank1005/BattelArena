@@ -1,0 +1,60 @@
+/* RGB Gradient Text Animation */
+.text-rgb-gradient {
+  background: linear-gradient(45deg, #00f0ff, #ff006e, #b000ff, #00f0ff);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 6s ease infinite;
+}
+
+/* Neon Glow Text */
+.text-neon-glow {
+  color: #00f0ff;
+  text-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff, 0 0 30px rgba(0, 240, 255, 0.5);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Border Glow Effect */
+.border-glow {
+  border: 2px solid #00f0ff;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.1);
+}
+
+/* General Glow Drop Shadow */
+.glow-effect {
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.6));
+}
+
+/* Floating Animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+    text-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff, 0 0 30px rgba(0, 240, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 0, 110, 0.8);
+    text-shadow: 0 0 20px #ff006e, 0 0 30px #ff006e, 0 0 40px rgba(255, 0, 110, 0.8);
+  }
+}

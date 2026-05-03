@@ -1,98 +1,146 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
+import gsap from 'gsap';
 import CTAButton from '../components/CTAButton';
 import GoogleOAuthButton from '../components/GoogleOAuthButton';
 import Navbar from '../components/Navbar';
 import Toaster from '../components/Toaster';
+import VaporTrailBackground from '../../../components/VaporTrailBackground';
+import AmbientLighting from '../../../components/AmbientLighting';
+import AnimatedBorder from '../../../components/AnimatedBorder';
 import useAuth from '../hooks/useAuth';
 
 export default function Login() {
-	const location = useLocation();
-	const { login, isLoading, isAuthenticated, authError, clearError } = useAuth();
-	const [form, setForm] = useState({ email: '', password: '' });
+  const location = useLocation();
+  const { login, isLoading, isAuthenticated, authError, clearError } = useAuth();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const containerRef = useRef(null);
 
-	const fromPath = location.state?.from || '/arena';
+  const fromPath = location.state?.from || '/arena';
 
-	if (isAuthenticated) {
-		return <Navigate to={fromPath} replace />;
-	}
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.fromTo('.auth-card', 
+        { y: 30, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out' }
+      );
+      gsap.fromTo('.auth-element', 
+        { y: 15, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out', delay: 0.2 }
+      );
+    }, containerRef);
+    return () => ctx.revert();
+  }, []);
 
-	const handleChange = (event) => {
-		const { name, value } = event.target;
-		setForm((current) => ({
-			...current,
-			[name]: value,
-		}));
-	};
+  if (isAuthenticated) {
+    return <Navigate to={fromPath} replace />;
+  }
 
-	const handleSubmit = async (event) => {
-		event.preventDefault();
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
 
-		try {
-			await login(form);
-		} catch {
-			// Error is surfaced via auth context.
-		}
-	};
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    try {
+      await login(form);
+    } catch {
+      // Error is surfaced via auth context.
+    }
+  };
 
-	return (
-		<div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-			<Navbar />
+  return (
+    <div className="min-h-screen bg-black relative overflow-hidden" ref={containerRef}>
+      <VaporTrailBackground />
+      <AmbientLighting />
+      <div className="relative z-10">
+        <Navbar />
 
-			<main className="mx-auto max-w-md px-4 py-14">
-				<div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-					<h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Sign in</h1>
-					<p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Access your protected arena and session history.</p>
+        <main className="relative mx-auto max-w-md px-4 py-20">
+          <div className="auth-card rounded-[2.5rem] border-2 border-cyan-400/40 bg-black/80 p-8 shadow-xl backdrop-blur-3xl sm:p-10 glow-effect" style={{ boxShadow: '0 0 40px rgba(0, 240, 255, 0.3), inset 0 0 40px rgba(0, 240, 255, 0.05)' }}>
+            <div className="relative z-10">
+              <div className="auth-element text-center mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-cyan-300">Welcome back</h1>
+                <p className="mt-2 text-sm text-zinc-400">Access your protected arena and start battling.</p>
+              </div>
 
-					<form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-						<label className="block">
-							<span className="text-sm text-zinc-700 dark:text-zinc-300">Email</span>
-							<input
-								name="email"
-								type="email"
-								required
-								value={form.email}
-								onChange={handleChange}
-								className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
-							/>
-						</label>
+              <form className="space-y-5" onSubmit={handleSubmit}>
+                <div className="auth-element">
+                  <label className="block text-sm font-medium text-cyan-300 mb-2 mt-1">Email</label>
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={handleChange}
+                    className="w-full rounded-[1.2rem] border-2 border-cyan-400/30 bg-black/50 px-4 py-3.5 text-sm outline-none transition-all focus:border-cyan-400 focus:ring-4 focus:ring-cyan-400/20 text-cyan-300 placeholder:text-zinc-600"
+                    placeholder="you@example.com"
+                  />
+                </div>
 
-						<label className="block">
-							<span className="text-sm text-zinc-700 dark:text-zinc-300">Password</span>
-							<input
-								name="password"
-								type="password"
-								required
-								minLength={6}
-								value={form.password}
-								onChange={handleChange}
-								className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
-							/>
-						</label>
+                <div className="auth-element">
+                  <label className="block text-sm font-medium text-cyan-300 mb-2">Password</label>
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    minLength={6}
+                    value={form.password}
+                    onChange={handleChange}
+                    className="w-full rounded-[1.2rem] border-2 border-cyan-400/30 bg-black/50 px-4 py-3.5 text-sm outline-none transition-all focus:border-cyan-400 focus:ring-4 focus:ring-cyan-400/20 text-cyan-300 placeholder:text-zinc-600"
+                    placeholder="••••••••"
+                  />
+                </div>
 
-						<CTAButton type="submit" disabled={isLoading} className="w-full">
-							{isLoading ? 'Signing in...' : 'Sign in'}
-						</CTAButton>
-					</form>
+                <div className="auth-element pt-2">
+                  <button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full rounded-full bg-gradient-to-r from-blue-400 to-purple-500 hover:from-blue-500 hover:to-purple-600 active:scale-95 transition-all text-white font-medium py-3.5 shadow-lg flex items-center justify-center disabled:opacity-70 disabled:active:scale-100 glow-effect"
+                    onMouseDown={(e) => {
+                      gsap.to(e.currentTarget, {
+                        scale: 0.95,
+                        duration: 0.1,
+                      });
+                    }}
+                    onMouseUp={(e) => {
+                      gsap.to(e.currentTarget, {
+                        scale: 1,
+                        duration: 0.2,
+                      });
+                    }}
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign in'}
+                  </button>
+                </div>
+              </form>
 
-					<div className="my-4 flex items-center gap-3">
-						<div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
-						<span className="text-xs uppercase tracking-wide text-zinc-400 dark:text-zinc-600">or</span>
-						<div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
-					</div>
+              <div className="auth-element my-8 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+                <span className="text-xs font-bold uppercase tracking-widest text-cyan-400/60">or</span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+              </div>
 
-					<GoogleOAuthButton label="Continue with Google" />
+              <div className="auth-element">
+                <GoogleOAuthButton label="Continue with Google" />
+              </div>
 
-					<p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-						New here?{' '}
-						<Link className="font-medium text-blue-600 hover:underline dark:text-blue-400" to="/register">
-							Create an account
-						</Link>
-					</p>
-				</div>
-			</main>
+              <p className="auth-element mt-8 text-center text-sm text-zinc-400">
+                New here?{' '}
+                <Link className="font-semibold text-cyan-400 hover:text-cyan-300 transition-colors" to="/register">
+                  Create an account
+                </Link>
+              </p>
+            </div>
+          </div>
+        </main>
+      </div>
 
-			<Toaster message={authError} onClose={clearError} />
-		</div>
-	);
+      <Toaster message={authError} onClose={clearError} />
+    </div>
+  );
 }

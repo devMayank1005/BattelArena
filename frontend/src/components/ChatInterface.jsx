@@ -65,6 +65,7 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
+      {/* Top Bar */}
       <Suspense fallback={<div className="h-16 border-b border-zinc-200 bg-white/80" />}>
         <ChatTopBar
           isSidebarOpen={isSidebarOpen}
@@ -73,8 +74,11 @@ export default function ChatInterface() {
         />
       </Suspense>
 
-      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8 w-full max-w-7xl mx-auto">
-        <div className="relative h-full">
+      {/* Scrollable Chat Feed - takes all remaining space */}
+      <main className="flex-1 overflow-y-auto scroll-smooth">
+        <div className="relative h-full w-full">
+
+          {/* Edge drag zone for mobile sidebar */}
           {!isSidebarOpen && (
             <div
               className={`fixed left-0 top-0 bottom-0 w-6 z-10 lg:hidden ${isDraggingEdge ? 'bg-blue-500/10' : ''}`}
@@ -88,6 +92,7 @@ export default function ChatInterface() {
             />
           )}
 
+          {/* Sidebar overlay for mobile */}
           {isSidebarOpen && (
             <button
               type="button"
@@ -99,7 +104,7 @@ export default function ChatInterface() {
 
           <Suspense
             fallback={(
-              <section className={`min-h-[60vh] transition-[padding] duration-300 ${isSidebarOpen ? 'lg:pl-[320px]' : 'lg:pl-0'}`}>
+              <section className={`min-h-[60vh] px-4 md:px-8 py-8 transition-[padding] duration-300 ${isSidebarOpen ? 'lg:pl-[340px]' : 'lg:pl-8'}`}>
                 <div className="h-full min-h-[60vh] flex items-center justify-center rounded-3xl border border-dashed border-zinc-300 bg-white/70 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400">
                   Loading chat...
                 </div>
@@ -128,12 +133,14 @@ export default function ChatInterface() {
         </div>
       </main>
 
-      <Suspense fallback={<div className="h-24 border-t border-zinc-200 bg-white" />}>
+      {/* Composer - static at bottom, never overlaps content */}
+      <Suspense fallback={null}>
         <ChatComposer
           inputRef={inputRef}
           inputValue={inputValue}
           onInputChange={(event) => setInputValue(event.target.value)}
           onSubmit={handleSend}
+          isSidebarOpen={isSidebarOpen}
         />
       </Suspense>
     </div>
